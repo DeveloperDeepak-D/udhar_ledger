@@ -111,4 +111,75 @@ router.get('/transactions', verifyToken, async (req, res) => {
         res.status(500).json({ success: false, error: error.message });
     }
 });
+
+// Summary / Calculate API (Total Given, Total Got with optional Customer & Date filters)
+router.get('/transactions/summary', verifyToken, async (req, res) => {
+    try {
+        const currentUserId = req.userId || req.user?.id || req.user?._id;
+
+        if (!currentUserId) {
+            return res.status(401).json({ success: false, error: "Unauthorized: User ID not found from token" });
+        }
+
+        const { customerId, date, startDate, endDate } = req.query;
+
+        // Base match query: Sirf logged-in user ki transactions
+        let matchQuery = { userId: new mongoose.Types.ObjectId(currentUserId) };
+
+        // Agar customerId pass ki hai toh specific customer ka filter lagao
+        if (customerId) {
+            matchQuery.customerId = new mongoose.Types.ObjectId(customerId);
+        }
+
+        // Date filter logic (Agar single date di ho ya date range)
+        if (date) {
+            const startOfDay = new Date(date);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(date);
+            endOfDay.setHours(23, 59, 59, 999);
+            matchQuery.date = { $gte: startOfDay, $lte: endOfDay };
+        } else if (startDate && endDate) {
+            matchQuery.date = { 
+                $gte: new Date(startDate), 
+                $lte: new Date(endDate) 
+            };
+        }
+
+        // MongoDB Aggregation Pipeline se total amount calculate karein
+        const summary = await Transaction.aggregate([
+            { $match: matchQuery },
+            {
+                $group: {
+                    _id: "$type", // 'GIVEN' ya 'GOT' ke hisaab se group banega
+                    totalAmount: { $sum: "$amount" }
+                }
+            }
+        ]);
+
+        // Result ko clean format mein convert karein
+        let totalGive = 0;
+        let totalGet = 0;
+
+        summary.forEach(item => {
+            const type = item._id ? item._id.toUpperCase() : '';
+            if (type === 'GIVEN') {
+                totalGive = item.totalAmount;
+            } else if (type === 'GOT') {
+                totalGet = item.totalAmount;
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                totalGive,
+                totalGet,
+                netBalance: totalGive - totalGet // Kitna lena/dena baki hai total
+            }
+        });
+
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 module.exports = router;
