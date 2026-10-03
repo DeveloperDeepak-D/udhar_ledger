@@ -20,9 +20,19 @@ router.post('/transactions', verifyToken, async (req, res) => {
             return res.status(400).json({ success: false, message: 'Customer ID, amount, and type are required!' });
         }
 
-        // Support dono formats ke liye ('GIVEN', 'GOT' ya 'give', 'get')
-        const upperType = type.toUpperCase();
-        if (!['GIVEN', 'GOT', 'GIVE', 'GET'].includes(upperType)) {
+        // Support dono formats ke liye aur GIVEN/GOT mapping
+        let upperType = type.toUpperCase();
+
+        // Agar user ya app se 'GIVE' ya 'give' aaye, toh use 'GIVEN' kar do
+        if (upperType === 'GIVE') {
+            upperType = 'GIVEN';
+        }
+        // Agar user ya app se 'GET' ya 'get' aaye, toh use 'GOT' kar do
+        if (upperType === 'GET') {
+            upperType = 'GOT';
+        }
+
+        if (!['GIVEN', 'GOT'].includes(upperType)) {
             return res.status(400).json({ success: false, message: 'Invalid transaction type! Use GIVEN or GOT.' });
         }
 
@@ -36,7 +46,7 @@ router.post('/transactions', verifyToken, async (req, res) => {
             userId: currentUserId, // Token se aayi hui user ID yahan save hogi
             customerId,
             amount,
-            type: upperType,
+            type: upperType, // Ab ye hamesha 'GIVEN' ya 'GOT' hi jayega database mein
             note: note || '',
             date: date || Date.now()
         });
