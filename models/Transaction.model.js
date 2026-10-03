@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const transactionSchema = new mongoose.Schema({
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
     customerId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Customer',
@@ -12,7 +17,7 @@ const transactionSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['GIVEN', 'GOT'], // GIVEN = Udhar diya (Debit), GOT = Paisa mila (Credit)
+        enum: ['GIVEN', 'GOT', 'give', 'get'], // Apne app ke hisaab se values match rakhne ke liye chota-bada dono allow kar sakte hain ya enum match kar lein
         required: true
     },
     note: {

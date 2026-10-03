@@ -5,30 +5,38 @@ const customerModel = require('../models/Customer.model');
 
 const router = express.Router();
 
-// 1. Naya Transaction Add Karne ki API (GIVEN / GOT)
+// 1. Token ke user ke hisaab se Naya Transaction Add Karne ki API (POST)
 router.post('/transactions', verifyToken, async (req, res) => {
     try {
         const { customerId, amount, type, note, date } = req.body;
+        const currentUserId = req.userId || req.user?.id || req.user?._id;
+
+        if (!currentUserId) {
+            return res.status(401).json({ success: false, error: "Unauthorized: User ID not found from token" });
+        }
 
         // Validation check
         if (!customerId || !amount || !type) {
             return res.status(400).json({ success: false, message: 'Customer ID, amount, and type are required!' });
         }
 
-        if (!['GIVEN', 'GOT'].includes(type)) {
+        // Support dono formats ke liye ('GIVEN', 'GOT' ya 'give', 'get')
+        const upperType = type.toUpperCase();
+        if (!['GIVEN', 'GOT', 'GIVE', 'GET'].includes(upperType)) {
             return res.status(400).json({ success: false, message: 'Invalid transaction type! Use GIVEN or GOT.' });
         }
 
-        // Check karein customer exist karta hai ya nahi
-        const customer = await customerModel.findById(customerId);
+        // Check karein ki customer exist karta hai AUR wo sirf isi logged-in user ka hai
+        const customer = await customerModel.findOne({ _id: customerId, userId: currentUserId });
         if (!customer) {
-            return res.status(404).json({ success: false, message: 'Customer not found!' });
+            return res.status(404).json({ success: false, message: 'Customer not found or unauthorized!' });
         }
 
         const newTransaction = new Transaction({
+            userId: currentUserId, // Token se aayi hui user ID yahan save hogi
             customerId,
             amount,
-            type,
+            type: upperType,
             note: note || '',
             date: date || Date.now()
         });
@@ -45,17 +53,24 @@ router.post('/transactions', verifyToken, async (req, res) => {
     }
 });
 
-// 2. Kisi Specific Customer ki Saari Transactions (History) Nikalne ki API
+// 2. Specific Customer ki Saari Transactions Nikalne ki API (GET) - Securely scoped to user
 router.get('/transactions/:customerId', verifyToken, async (req, res) => {
     try {
         const { customerId } = req.params;
+        const currentUserId = req.userId || req.user?.id || req.user?._id;
 
-        const customer = await customerModel.findById(customerId);
-        if (!customer) {
-            return res.status(404).json({ success: false, message: 'Customer not found!' });
+        if (!currentUserId) {
+            return res.status(401).json({ success: false, error: "Unauthorized: User ID not found from token" });
         }
 
-        const transactions = await Transaction.find({ customerId }).sort({ date: -1, createdAt: -1 });
+        // Verify karein ki customer logged-in user ka hi hai
+        const customer = await customerModel.findOne({ _id: customerId, userId: currentUserId });
+        if (!customer) {
+            return res.status(404).json({ success: false, message: 'Customer not found or unauthorized!' });
+        }
+
+        // Sirf is user ki aur is customer ki transactions fetch hongi
+        const transactions = await Transaction.find({ userId: currentUserId, customerId }).sort({ date: -1, createdAt: -1 });
 
         res.status(200).json({ 
             success: true, 
