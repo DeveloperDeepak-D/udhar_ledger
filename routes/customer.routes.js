@@ -10,8 +10,15 @@ router.post('/customers', verifyToken, async (req, res) => {
     try {
         const { name, mobile, openingBalance } = req.body;
         
+        // Yahan hum multiple options check kar rahe hain taaki undefined na aaye
+        const currentUserId = req.userId || req.user?.id || req.user?._id;
+
+        if (!currentUserId) {
+            return res.status(401).json({ success: false, error: "Unauthorized: User ID not found from token" });
+        }
+
         const newCustomer = new Customer({
-            userId: req.userId, // Token se aayi hui logged-in user ki ID yahan save hogi
+            userId: currentUserId, // Ab yahan sahi ID jayegi
             name,
             mobile,
             openingBalance: openingBalance || 0
@@ -27,8 +34,13 @@ router.post('/customers', verifyToken, async (req, res) => {
 // 2. Sirf Token wale (Logged-in) user ke customers fetch karein (GET)
 router.get('/customers', verifyToken, async (req, res) => {
     try {
-        // Sirf wahi customers nikalenge jinka userId current token wale user se match karega
-        const customers = await Customer.find({ userId: req.userId }).sort({ createdAt: -1 });
+        const currentUserId = req.userId || req.user?.id || req.user?._id;
+
+        if (!currentUserId) {
+            return res.status(401).json({ success: false, error: "Unauthorized: User ID not found from token" });
+        }
+
+        const customers = await Customer.find({ userId: currentUserId }).sort({ createdAt: -1 });
         res.status(200).json({ success: true, data: customers });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
