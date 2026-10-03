@@ -91,5 +91,24 @@ router.get('/transactions/:customerId', verifyToken, async (req, res) => {
         res.status(500).json({ success: false, error: error.message });
     }
 });
+// 3. Logged-in user ke saari transactions (sabhi customers ki) nikalne ki API (GET)
+router.get('/transactions', verifyToken, async (req, res) => {
+    try {
+        const currentUserId = req.userId || req.user?.id || req.user?._id;
 
+        if (!currentUserId) {
+            return res.status(401).json({ success: false, error: "Unauthorized: User ID not found from token" });
+        }
+
+        // Sirf is user ki saari transactions fetch hongi (sabhi customers ki mila kar)
+        const transactions = await Transaction.find({ userId: currentUserId }).sort({ date: -1, createdAt: -1 });
+
+        res.status(200).json({ 
+            success: true, 
+            data: transactions 
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 module.exports = router;
