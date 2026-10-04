@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose'); // <-- Yeh line add karni hai!
 const Transaction = require('../models/Transaction.model');
 const verifyToken = require('../middleware/auth.middleware');
 const customerModel = require('../models/Customer.model');
