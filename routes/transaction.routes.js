@@ -63,56 +63,7 @@ router.post('/transactions', verifyToken, async (req, res) => {
     }
 });
 
-// 2. Specific Customer ki Saari Transactions Nikalne ki API (GET) - Securely scoped to user
-router.get('/transactions/:customerId', verifyToken, async (req, res) => {
-    try {
-        const { customerId } = req.params;
-        const currentUserId = req.userId || req.user?.id || req.user?._id;
-
-        if (!currentUserId) {
-            return res.status(401).json({ success: false, error: "Unauthorized: User ID not found from token" });
-        }
-
-        // Verify karein ki customer logged-in user ka hi hai
-        const customer = await customerModel.findOne({ _id: customerId, userId: currentUserId });
-        if (!customer) {
-            return res.status(404).json({ success: false, message: 'Customer not found or unauthorized!' });
-        }
-
-        // Sirf is user ki aur is customer ki transactions fetch hongi
-        const transactions = await Transaction.find({ userId: currentUserId, customerId }).sort({ date: -1, createdAt: -1 });
-
-        res.status(200).json({ 
-            success: true, 
-            customerName: customer.name,
-            data: transactions 
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-// 3. Logged-in user ke saari transactions (sabhi customers ki) nikalne ki API (GET)
-router.get('/transactions', verifyToken, async (req, res) => {
-    try {
-        const currentUserId = req.userId || req.user?.id || req.user?._id;
-
-        if (!currentUserId) {
-            return res.status(401).json({ success: false, error: "Unauthorized: User ID not found from token" });
-        }
-
-        // Sirf is user ki saari transactions fetch hongi (sabhi customers ki mila kar)
-        const transactions = await Transaction.find({ userId: currentUserId }).sort({ date: -1, createdAt: -1 });
-
-        res.status(200).json({ 
-            success: true, 
-            data: transactions 
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Summary / Calculate API (Total Given, Total Got with optional Customer & Date filters)
+// 2. Summary / Calculate API (STATIC ROUTE - Hamesha dynamic route se upar hona chahiye)
 router.get('/transactions/summary', verifyToken, async (req, res) => {
     try {
         const currentUserId = req.userId || req.user?.id || req.user?._id;
@@ -182,4 +133,55 @@ router.get('/transactions/summary', verifyToken, async (req, res) => {
         res.status(500).json({ success: false, error: error.message });
     }
 });
+
+// 3. Logged-in user ke saari transactions (sabhi customers ki) nikalne ki API (GET)
+router.get('/transactions', verifyToken, async (req, res) => {
+    try {
+        const currentUserId = req.userId || req.user?.id || req.user?._id;
+
+        if (!currentUserId) {
+            return res.status(401).json({ success: false, error: "Unauthorized: User ID not found from token" });
+        }
+
+        // Sirf is user ki saari transactions fetch hongi (sabhi customers ki mila kar)
+        const transactions = await Transaction.find({ userId: currentUserId }).sort({ date: -1, createdAt: -1 });
+
+        res.status(200).json({ 
+            success: true, 
+            data: transactions 
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 4. Specific Customer ki Saari Transactions Nikalne ki API (GET) - DYNAMIC ROUTE (Hamesha niche rahega)
+router.get('/transactions/:customerId', verifyOrder = verifyToken, async (req, res) => {
+    try {
+        const { customerId } = req.params;
+        const currentUserId = req.userId || req.user?.id || req.user?._id;
+
+        if (!currentUserId) {
+            return res.status(401).json({ success: false, error: "Unauthorized: User ID not found from token" });
+        }
+
+        // Verify karein ki customer logged-in user ka hi hai
+        const customer = await customerModel.findOne({ _id: customerId, userId: currentUserId });
+        if (!customer) {
+            return res.status(404).json({ success: false, message: 'Customer not found or unauthorized!' });
+        }
+
+        // Sirf is user ki aur is customer ki transactions fetch hongi
+        const transactions = await Transaction.find({ userId: currentUserId, customerId }).sort({ date: -1, createdAt: -1 });
+
+        res.status(200).json({ 
+            success: true, 
+            customerName: customer.name,
+            data: transactions 
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 module.exports = router;
