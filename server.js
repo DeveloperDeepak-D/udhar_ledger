@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const routes = require('./routes/customer.routes');
 const authRoutes = require('./routes/auth.routes');
 const transactionRoutes = require('./routes/transaction.routes'); // <-- Transaction routes import kiya
+const itemRoutes = require('./routes/item.routes'); // path apne hisaab se dekh lein
 const cors = require('cors');
 require('dotenv').config();
 
@@ -28,6 +29,7 @@ app.get('/', (req, res) => {
 app.use('/api', routes);
 app.use('/api/auth', authRoutes);
 app.use('/api', transactionRoutes); // <-- Transaction routes register kiya (/api/transactions ke liye)
+app.use('/api/items', itemRoutes);
 
 // Server Start
 app.listen(PORT, () => {

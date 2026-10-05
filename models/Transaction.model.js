@@ -20,6 +20,11 @@ const transactionSchema = new mongoose.Schema({
         enum: ['GIVEN', 'GOT', 'give', 'get'], // Apne app ke hisaab se values match rakhne ke liye chota-bada dono allow kar sakte hain ya enum match kar lein
         required: true
     },
+    itemName: { 
+        type: String, 
+        default: '', 
+        trim: true 
+    }, 
     note: {
         type: String,
         trim: true
