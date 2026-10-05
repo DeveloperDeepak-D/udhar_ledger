@@ -1,7 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction.model');
-const Item = require('../models/Item.model'); // <-- Item model require kar liya hai
+const Item = require('../models/Item.model');
 const verifyToken = require('../middleware/auth.middleware');
 const customerModel = require('../models/Customer.model');
 
@@ -10,7 +10,6 @@ const router = express.Router();
 // 1. Token ke user ke hisaab se Naya Transaction Add Karne ki API (POST)
 router.post('/transactions', verifyToken, async (req, res) => {
     try {
-        // req.body se itemName bhi destructure kar liya hai
         const { customerId, amount, type, itemName, note, date } = req.body;
         const currentUserId = req.userId || req.user?.id || req.user?._id;
 
@@ -18,12 +17,10 @@ router.post('/transactions', verifyToken, async (req, res) => {
             return res.status(401).json({ success: false, error: "Unauthorized: User ID not found from token" });
         }
 
-        // Validation check
         if (!customerId || !amount || !type) {
             return res.status(400).json({ success: false, message: 'Customer ID, amount, and type are required!' });
         }
 
-        // Support dono formats ke liye aur GIVEN/GOT mapping
         let upperType = type.toUpperCase();
 
         if (upperType === 'GIVE') {
@@ -37,7 +34,6 @@ router.post('/transactions', verifyToken, async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid transaction type! Use GIVEN or GOT.' });
         }
 
-        // Check karein ki customer exist کرتا hai AUR wo sirf isi logged-in user ka hai
         const customer = await customerModel.findOne({ _id: customerId, userId: currentUserId });
         if (!customer) {
             return res.status(404).json({ success: false, message: 'Customer not found or unauthorized!' });
@@ -48,18 +44,20 @@ router.post('/transactions', verifyToken, async (req, res) => {
             customerId,
             amount,
             type: upperType,
-            itemName: itemName ? itemName.trim() : '', // <-- Transaction mein item ka naam save hoga
+            itemName: itemName ? itemName.trim() : '',
             note: note || '',
             date: date || Date.now()
         });
 
-        const savedTransaction = await newTransaction.save();
+        let savedTransaction = await newTransaction.save();
 
-        // 🌟 AGGAR ITEM NAME DIYA HAI, TOH USE ITEM COLLECTION MEIN SAVE/UPDATE KARO (UPSERT)
+        // 🌟 Save hote hi customer object bhi populate kar lo taaki response me poora object jaye
+        savedTransaction = await savedTransaction.populate('customerId');
+
         if (itemName && itemName.trim() !== '') {
             await Item.findOneAndUpdate(
                 { userId: currentUserId, name: itemName.trim() },
-                { $inc: { frequency: 1 } }, // Jitni baar item use hoga frequency +1 ho jayegi
+                { $inc: { frequency: 1 } },
                 { upsert: true, new: true }
             );
         }
@@ -140,7 +138,7 @@ router.get('/transactions/summary', verifyToken, async (req, res) => {
     }
 });
 
-// 3. Logged-in user ke saari transactions nikalne ki API (GET)
+// 3. Logged-in user ke saari transactions nikalne ki API (GET with Populate)
 router.get('/transactions', verifyToken, async (req, res) => {
     try {
         const currentUserId = req.userId || req.user?.id || req.user?._id;
@@ -149,7 +147,10 @@ router.get('/transactions', verifyToken, async (req, res) => {
             return res.status(401).json({ success: false, error: "Unauthorized: User ID not found from token" });
         }
 
-        const transactions = await Transaction.find({ userId: currentUserId }).sort({ date: -1, createdAt: -1 });
+        // 🌟 .populate('customerId') se customer ka poora object mil jayega
+        const transactions = await Transaction.find({ userId: currentUserId })
+            .populate('customerId')
+            .sort({ date: -1, createdAt: -1 });
 
         res.status(200).json({ 
             success: true, 
@@ -160,7 +161,7 @@ router.get('/transactions', verifyToken, async (req, res) => {
     }
 });
 
-// 4. Specific Customer ki Saari Transactions Nikalne ki API (GET)
+// 4. Specific Customer ki Saari Transactions Nikalne ki API (GET with Populate)
 router.get('/transactions/:customerId', verifyToken, async (req, res) => {
     try {
         const { customerId } = req.params;
@@ -175,7 +176,9 @@ router.get('/transactions/:customerId', verifyToken, async (req, res) => {
             return res.status(404).json({ success: false, message: 'Customer not found or unauthorized!' });
         }
 
-        const transactions = await Transaction.find({ userId: currentUserId, customerId }).sort({ date: -1, createdAt: -1 });
+        const transactions = await Transaction.find({ userId: currentUserId, customerId })
+            .populate('customerId')
+            .sort({ date: -1, createdAt: -1 });
 
         res.status(200).json({ 
             success: true, 
